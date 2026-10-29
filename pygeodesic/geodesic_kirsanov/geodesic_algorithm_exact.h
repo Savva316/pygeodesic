@@ -42,6 +42,22 @@ public:
 		double& best_source_distance); 
 
 	void print_statistics();
+    
+    double distance_on_edge(unsigned edge_id, double position)
+    {
+        assert(edge_id < m_edge_interval_lists.size());
+
+        return m_edge_interval_lists[edge_id].signal(position);
+    }
+    void get_edge_vertices(unsigned edge_id, unsigned& v0, unsigned& v1)
+    {
+        assert(edge_id < m_edge_interval_lists.size());
+
+        edge_pointer e = m_edge_interval_lists[edge_id].edge();
+
+        v0 = e->adjacent_vertices()[0]->id();
+        v1 = e->adjacent_vertices()[1]->id();
+    }
 
 private:
 	typedef std::set<interval_pointer, Interval> IntervalQueue;
@@ -1326,11 +1342,26 @@ inline void GeodesicAlgorithmExact::trace_back(SurfacePoint& destination,		//tra
 									   position);
 
 			//std::cout << total_distance + length(path) << std::endl;
+            edge_pointer debug_edge = interval->edge();
+
+//            std::cout << "edge=" << debug_edge->id()
+//                      << " edge_length=" << debug_edge->length()
+//                      << " position=" << position
+//                      << " start=" << interval->start()
+//                      << " stop=" << interval->stop()
+//                      << " distance_to_v0=" << position
+//                      << " distance_to_v1=" << debug_edge->length() - position
+//                      << " distance=" << total_distance
+//                      << std::endl;
 			assert(total_distance<GEODESIC_INF);
 			source_index = interval->source_index();
 
 			edge_pointer e = interval->edge();
-			double local_epsilon = SMALLEST_INTERVAL_RATIO*e->length();
+			double local_epsilon = 1e-5*e->length();
+//            std::cout << "local_epsilon=" << local_epsilon
+//                      << " snap_to_v0=" << (position < local_epsilon)
+//                      << " snap_to_v1=" << (position > e->length() - local_epsilon)
+//                      << std::endl;
 			if(position < local_epsilon)
 			{
 				path.push_back(SurfacePoint(e->v0()));
@@ -1342,7 +1373,18 @@ inline void GeodesicAlgorithmExact::trace_back(SurfacePoint& destination,		//tra
 			else
 			{
 				double normalized_position = position/e->length();
+//                std::cout << "TRACE EDGE POINT: edge=" << e->id()
+//                          << " normalized_position=" << normalized_position
+//                          << " position=" << position
+//                          << " edge_length=" << e->length()
+//                          << std::endl;
 				path.push_back(SurfacePoint(e, normalized_position));
+                SurfacePoint& p = path.back();
+
+//                std::cout << "STORED POINT: "
+//                          << p.x() << " "
+//                          << p.y() << " "
+//                          << p.z() << std::endl;
 			}
 		}
 	}
@@ -1368,12 +1410,12 @@ inline void GeodesicAlgorithmExact::print_statistics()
 	double memory = m_edge_interval_lists.size()*sizeof(IntervalList) + 
 					interval_counter*sizeof(Interval);
 
-	std::cout << "uses about " << memory/1e6 << "Mb of memory" <<std::endl;
-	std::cout << interval_counter << " total intervals, or " 
-			  << intervals_per_edge << " intervals per edge"
-			  << std::endl;
-	std::cout << "maximum interval queue size is " << m_queue_max_size << std::endl;
-	std::cout << "number of interval propagations is " << m_iterations << std::endl;
+//	std::cout << "uses about " << memory/1e6 << "Mb of memory" <<std::endl;
+//	std::cout << interval_counter << " total intervals, or " 
+//			  << intervals_per_edge << " intervals per edge"
+//			  << std::endl;
+//	std::cout << "maximum interval queue size is " << m_queue_max_size << std::endl;
+//	std::cout << "number of interval propagations is " << m_iterations << std::endl;
 }
 
 }		//geodesic

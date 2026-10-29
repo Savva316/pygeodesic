@@ -6,6 +6,9 @@ import numpy
 cimport numpy
 from libcpp.vector cimport vector
 
+cdef extern from "geodesic_kirsanov/geodesic_mesh_elements.h" namespace "geodesic":
+    cdef cppclass Edge:
+        Edge()
 
 cdef extern from "geodesic_kirsanov/geodesic_mesh_elements.h" namespace "geodesic":
     cdef cppclass Face:
@@ -22,6 +25,7 @@ cdef extern from "geodesic_kirsanov/geodesic_mesh_elements.h" namespace "geodesi
         double& x()
         double& y()
         double& z()
+        SurfacePoint(Edge*, double)
 
 cdef extern from "geodesic_kirsanov/geodesic_mesh.h" namespace "geodesic":
     cdef cppclass Mesh:
@@ -29,6 +33,7 @@ cdef extern from "geodesic_kirsanov/geodesic_mesh.h" namespace "geodesic":
         void initialize_mesh_data(vector[double]&, vector[unsigned]&)
         vector[Vertex]& vertices()
         vector[Face]& faces()
+        vector[Edge]& edges()
 
 cdef extern from "geodesic_kirsanov/geodesic_algorithm_exact.h" namespace "geodesic":
     cdef cppclass GeodesicAlgorithmExact:
@@ -37,6 +42,8 @@ cdef extern from "geodesic_kirsanov/geodesic_algorithm_exact.h" namespace "geode
         unsigned best_source(SurfacePoint&, double&)
         void trace_back(SurfacePoint&, vector[SurfacePoint]&)
         void geodesic(SurfacePoint&, SurfacePoint&, vector[SurfacePoint]&)
+        double distance_on_edge(unsigned edge_id, double position)
+        void get_edge_vertices(unsigned edge_id, unsigned& v0, unsigned& v1)
 
 cdef extern from "geodesic_kirsanov/geodesic_algorithm_base.h" namespace "geodesic":
     double length(vector[SurfacePoint]&)
@@ -93,6 +100,84 @@ cdef class PyGeodesicAlgorithmExact:
 
         self.mesh.initialize_mesh_data(self.points, self.faces)
         self.algorithm = new GeodesicAlgorithmExact(&self.mesh)
+        
+    def distance_on_edge(self, edge_id, position):
+        """
+        Returns the geodesic distance from the current source
+        to a point on an edge.
+
+        Parameters
+        ----------
+        edge_id : int
+            Index of the mesh edge.
+        position : float
+            Position along the edge, measured from its first vertex.
+
+        Returns
+        -------
+        float
+            Geodesic distance from the source to the specified point.
+        """
+
+        return self.algorithm.distance_on_edge(
+            <unsigned>edge_id,
+            <double>position
+        )
+    def trace_back_to_edge(self, edge_id, t):
+        cdef Py_ssize_t i
+        cdef vector[SurfacePoint] path
+        cdef SurfacePoint target
+
+        assert self.algorithm != NULL
+        assert 0 <= edge_id < self.mesh.edges().size()
+        assert 0.0 <= t <= 1.0
+
+        target = SurfacePoint(
+            &self.mesh.edges()[edge_id],
+            <double>t
+        )
+
+        self.algorithm.trace_back(target, path)
+
+        path_points = []
+        for i in range(path.size()):
+            path_points.append([
+                path[i].x(),
+                path[i].y(),
+                path[i].z()
+            ])
+
+        return numpy.asarray(path_points, dtype=numpy.float64)
+    def propagate_from_vertex(self, vertex_index, max_distance=float("inf")):
+        """
+        Run exact MMP propagation from one mesh vertex.
+
+        After this call, distance_on_edge() can be used
+        for many points on mesh edges.
+        """
+
+        cdef vector[SurfacePoint] sources
+
+        sources.push_back(
+            SurfacePoint(&self.mesh.vertices()[vertex_index])
+        )
+
+        self.algorithm.propagate(
+            sources,
+            max_distance,
+            NULL
+        )
+    def get_edge_vertices(self, edge_id):
+        cdef unsigned v0
+        cdef unsigned v1
+
+        self.algorithm.get_edge_vertices(
+            <unsigned>edge_id,
+            v0,
+            v1
+        )
+
+        return v0, v1
 
     def geodesicDistance(self, sourceIndex, targetIndex):
         """

@@ -349,6 +349,13 @@ inline void Interval::find_closest_point(double const rs,
 		double end = stop();
 
 		double local_epsilon = SMALLEST_INTERVAL_RATIO*m_edge->length();
+//        std::cout << "rs=" << rs
+//                  << " hs=" << hs
+//                  << " hc=" << hc
+//                  << " epsilon=" << local_epsilon
+//                  << " near_zero_height="
+//                  << (std::abs(hs + hc) < local_epsilon)
+//                  << std::endl;
 		if(std::abs(hs+hc) < local_epsilon)
 		{
 			if(rs<=m_start)
@@ -370,7 +377,12 @@ inline void Interval::find_closest_point(double const rs,
 		else
 		{
 			double ri = (rs*hc + hs*rc)/(hs+hc);
-
+//            std::cout << "ri=" << ri
+//                      << " m_start=" << m_start
+//                      << " end=" << end
+//                      << " rc=" << rc
+//                      << " d=" << m_d
+//                      << std::endl;
 			if(ri<m_start)
 			{
 				r = m_start;
